@@ -25,7 +25,7 @@ const signupFormSchema = z
     password: z.string().min(8, "Password must be at least 8 characters"),
     confirmPassword: z.string().min(8, "Password must be at least 8 characters"),
     bio: z.string().max(200, "Bio must be at most 200 characters").optional(),
-    avatar: z.url("Invalid URL").optional(),
+    avatar: z.url("Invalid URL").optional().or(z.literal("")),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords do not match",
@@ -144,7 +144,7 @@ const SignupForm = () => {
           name="bio"
           render={({ field }) => (
             <FormItem className={formItemClassName}>
-              <FormLabel>Bio</FormLabel>
+              <FormLabel>Bio (Optional)</FormLabel>
               <FormControl>
                 <Input placeholder="Tell us about yourself" {...field} />
               </FormControl>
@@ -158,7 +158,7 @@ const SignupForm = () => {
           name="avatar"
           render={({ field }) => (
             <FormItem className={formItemClassName}>
-              <FormLabel>Avatar URL</FormLabel>
+              <FormLabel>Avatar URL (Optional)</FormLabel>
               <FormControl>
                 <Input placeholder="https://example.com/avatar.jpg" {...field} />
               </FormControl>
