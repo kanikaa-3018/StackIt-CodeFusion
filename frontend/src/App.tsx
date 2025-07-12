@@ -9,7 +9,7 @@ const App = () => {
   useEffect(() => {
     const refreshToken = async () => {
       try {
-        const res = await axios.post("/refresh_access_token", {}, { withCredentials: true });
+        const res = await axios.post("/users/refresh_access_token", {}, { withCredentials: true });
 
         const token = res.data?.jwt_token;
         if (token) {
