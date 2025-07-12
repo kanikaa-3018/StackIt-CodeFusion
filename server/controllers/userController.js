@@ -1,23 +1,41 @@
 import User from "../models/User.js";
+import Session from "../models/Session.js";
 import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
-import generateToken, { verifyToken } from "../utils/generateToken.js";
+import { verifyToken } from "../utils/generateToken.js";
+import ms from "ms";
+import dotenv from "dotenv";
+dotenv.config();
 
 export const registerUser = async (req, res) => {
-  const { username, email, password } = req.body;
+  const { username, email, password, bio, avatar, role } = req.body;
+
   try {
     const exists = await User.findOne({ email });
-    if (exists)
+    if (exists) {
       return res.status(400).json({ message: "Email already in use" });
+    }
 
     const hashed = await bcrypt.hash(password, 10);
-    const user = await User.create({ username, email, password: hashed });
+
+    const user = await User.create({
+      username,
+      email,
+      password: hashed,
+      bio: bio || "",
+      avatar: avatar || "",
+      role: role || "user",
+    });
 
     res.status(201).json({
-      _id: user._id,
-      username: user.username,
-      email: user.email,
-      token: generateToken(user._id),
+      message: "User registered successfully",
+      user: {
+        _id: user._id,
+        username: user.username,
+        email: user.email,
+        bio: user.bio,
+        avatar: user.avatar,
+        role: user.role,
+      },
     });
   } catch (err) {
     res.status(500).json({ message: err.message });
