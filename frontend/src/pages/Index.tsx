@@ -1,233 +1,196 @@
-import React, { useState, useEffect } from "react";
-import { AuthProvider } from "../contexts/AuthContext";
-import { ThemeProvider } from "../contexts/ThemeContext";
-import { useAuth } from "../contexts/AuthContext";
-import { Button } from "@/components/ui/button";
-import Header from "../components/Header";
-import Sidebar from "../components/Sidebar";
-import QuestionCard from "../components/QuestionCard";
-import QuestionDetail from "../components/QuestionDetail";
-import AuthPage from "../components/AuthPage";
-import AskQuestion from "../components/AskQuestion";
-import MobileNavigation from "../components/MobileNavigation";
-import { useToast } from "@/hooks/use-toast";
-import SignupForm from "@/components/auth/SignupForm";
-import Signup from "./Signup";
 
-// Mock data
-const mockQuestions = [
-  {
-    id: "1",
-    title: "How to handle async/await with error handling in React?",
-    content:
-      "I'm trying to implement proper error handling with async/await in my React component. What's the best practice for handling errors and loading states?",
-    author: {
-      name: "Sarah Chen",
-      reputation: 1250,
-      badges: ["⭐", "🔥", "🚀"],
-    },
-    tags: ["React", "JavaScript", "Async"],
-    votes: 23,
-    answers: 5,
-    views: 156,
-    createdAt: new Date("2024-01-10"),
-    hasAcceptedAnswer: true,
-  },
-  {
-    id: "2",
-    title: "TypeScript generic constraints not working as expected",
-    content:
-      "I have a generic function with constraints but TypeScript is still allowing types that shouldn't be allowed. Here's my code...",
-    author: {
-      name: "Alex Kumar",
-      reputation: 890,
-      badges: ["💎", "⚡"],
-    },
-    tags: ["TypeScript", "Generics"],
-    votes: 15,
-    answers: 3,
-    views: 89,
-    createdAt: new Date("2024-01-11"),
-    hasAcceptedAnswer: false,
-  },
-  {
-    id: "3",
-    title: "CSS Grid vs Flexbox - When to use which?",
-    content:
-      "I'm confused about when I should use CSS Grid versus Flexbox. Can someone explain the key differences and use cases?",
-    author: {
-      name: "Emma Wilson",
-      reputation: 567,
-      badges: ["🎨", "✨"],
-    },
-    tags: ["CSS", "Grid", "Flexbox"],
-    votes: 42,
-    answers: 8,
-    views: 234,
-    createdAt: new Date("2024-01-09"),
-    hasAcceptedAnswer: true,
-  },
-  {
-    id: "4",
-    title: "Node.js memory leak in production - help needed!",
-    content:
-      "My Node.js application is experiencing memory leaks in production. I've tried using heapdump but can't identify the issue.",
-    author: {
-      name: "Michael Park",
-      reputation: 1890,
-      badges: ["🔧", "⚡", "🏆"],
-    },
-    tags: ["Node.js", "Memory", "Production"],
-    votes: 31,
-    answers: 6,
-    views: 178,
-    createdAt: new Date("2024-01-08"),
-    hasAcceptedAnswer: false,
-  },
-  {
-    id: "5",
-    title: "Best practices for React state management in 2024?",
-    content:
-      "With so many options like Redux, Zustand, Context API, what are the current best practices for state management in React applications?",
-    author: {
-      name: "Lisa Zhang",
-      reputation: 2156,
-      badges: ["👑", "🌟", "🚀", "💡"],
-    },
-    tags: ["React", "State Management", "Redux"],
-    votes: 67,
-    answers: 12,
-    views: 445,
-    createdAt: new Date("2024-01-07"),
-    hasAcceptedAnswer: true,
-  },
-];
+
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { AuthProvider } from '../contexts/AuthContext';
+import { ThemeProvider } from '../contexts/ThemeContext';
+import { useAuth } from '../contexts/AuthContext';
+import { Button } from '@/components/ui/button';
+
+import QuestionCard from '../components/QuestionCard';
+import QuestionDetail from '../components/QuestionDetail';
+import Header from '@/components/Header';
+import Sidebar from '@/components/Sidebar';
+import AskQuestion from '../components/AskQuestion';
+import MobileNavigation from '../components/MobileNavigation';
+import Pagination from '../components/Pagination';
+import { useToast } from '@/hooks/use-toast';
+import { useDebounce, usePagination, questionsCache } from '@/utils/performance';
+import { handleError, logError } from '@/utils/errorHandler';
+import { APP_CONFIG, FILTER_OPTIONS, SUCCESS_MESSAGES } from '@/config/constants';
+import { validateSearch } from '@/utils/validation';
 
 const AppContent: React.FC = () => {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [currentPage, setCurrentPage] = useState("home");
+  const [currentPage, setCurrentPage] = useState('home');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showAskQuestion, setShowAskQuestion] = useState(false);
   const [selectedQuestion, setSelectedQuestion] = useState<string | null>(null);
-  const [questions, setQuestions] = useState([]);
-  const [filteredQuestions, setFilteredQuestions] = useState(mockQuestions);
+  const [questions, setQuestions] = useState(mockQuestions);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [activeFilter, setActiveFilter] = useState("newest");
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeFilter, setActiveFilter] = useState('newest');
   const [activeTag, setActiveTag] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [errors, setErrors] = useState<{ search?: string; filter?: string }>({});
 
-  useEffect(() => {
-    const fetchQuestions = async () => {
-      try {
-        const res = await fetch(
-          `${import.meta.env.VITE_API_URL}/api/questions`
+
+const debouncedSearchQuery = useDebounce(searchQuery);
+
+  const filteredQuestions = useMemo(() => {
+    try {
+      let filtered = [...questions];
+
+      // Apply search filter with validation
+      if (debouncedSearchQuery) {
+        const searchValidation = validateSearch(debouncedSearchQuery);
+        if (!searchValidation.success) {
+          setErrors(prev => ({ ...prev, search: searchValidation.errors[0]?.message || 'Invalid search query' }));
+          return filtered;
+        }
+        
+        setErrors(prev => ({ ...prev, search: undefined }));
+        const query = searchValidation.data.toLowerCase();
+        
+        filtered = filtered.filter(q => 
+          q.title.toLowerCase().includes(query) ||
+          q.content.toLowerCase().includes(query) ||
+          q.tags.some(tag => tag.toLowerCase().includes(query))
         );
-        const data = await res.json();
-        setQuestions(data.questions);
-      } catch (err) {
-        console.error("Failed to fetch questions:", err);
-      } finally {
-        setLoading(false);
       }
-    };
 
-    fetchQuestions();
-  }, []);
+      // Apply tag filter
+      if (activeTag) {
+        filtered = filtered.filter(q => q.tags.includes(activeTag));
+      }
 
-  useEffect(() => {
-    if (!user && currentPage !== "auth") {
-      setCurrentPage("auth");
+      // Apply sorting filter
+      switch (activeFilter) {
+        case 'newest':
+          filtered.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+          break;
+        case 'oldest':
+          filtered.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+          break;
+        case 'most-voted':
+          filtered.sort((a, b) => b.votes - a.votes);
+          break;
+        case 'unanswered':
+          filtered = filtered.filter(q => q.answers === 0);
+          break;
+        case 'bounty':
+          filtered = filtered.filter(q => q.votes > 30);
+          break;
+        default:
+          break;
+      }
+
+      // Cache filtered results
+      questionsCache.set(`filtered_${activeFilter}_${activeTag}_${debouncedSearchQuery}`, filtered);
+      
+      return filtered;
+    } catch (error) {
+      const appError = handleError(error);
+      logError(appError, 'QuestionFiltering');
+      setErrors(prev => ({ ...prev, filter: appError.message }));
+      return questions;
     }
-  }, [user, currentPage]);
+  }, [questions, debouncedSearchQuery, activeFilter, activeTag]);
 
+  // Pagination
+  const {
+    currentPage: paginationPage,
+    totalPages,
+    startIndex,
+    endIndex,
+    goToPage,
+    hasNext,
+    hasPrevious
+  } = usePagination(filteredQuestions.length, APP_CONFIG.QUESTIONS_PER_PAGE);
 
-  useEffect(() => {
-    let filtered = [...questions];
+  const paginatedQuestions = useMemo(() => {
+    return filteredQuestions.slice(startIndex, endIndex);
+  }, [filteredQuestions, startIndex, endIndex]);
 
-    if (searchQuery) {
-      filtered = filtered.filter(
-        (q) =>
-          q.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          q.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          q.tags.some((tag) =>
-            tag.toLowerCase().includes(searchQuery.toLowerCase())
-          )
-      );
+  // Event handlers with error handling
+  const handlePageChange = useCallback((page: string) => {
+    try {
+      console.log(`Navigating to page: ${page}`);
+      setCurrentPage(page);
+      setSidebarOpen(false);
+      setSelectedQuestion(null);
+
+      if (page === 'ask') {
+        setShowAskQuestion(true);
+      }
+    } catch (error) {
+      const appError = handleError(error);
+      logError(appError, 'PageNavigation');
+      toast({
+        title: "Navigation Error",
+        description: appError.message,
+        variant: "destructive"
+      });
     }
+  }, [toast]);
 
-    if (activeTag) {
-      filtered = filtered.filter((q) => q.tags.includes(activeTag));
+  const handleQuestionClick = useCallback((questionId: string) => {
+    try {
+      console.log(`Clicked question: ${questionId}`);
+      setSelectedQuestion(questionId);
+      setCurrentPage('question-detail');
+      toast({
+        title: "Question Selected",
+        description: "Loading question details...",
+      });
+    } catch (error) {
+      const appError = handleError(error);
+      logError(appError, 'QuestionClick');
+      toast({
+        title: "Error",
+        description: appError.message,
+        variant: "destructive"
+      });
     }
+  }, [toast]);
 
-    switch (activeFilter) {
-      case "newest":
-        filtered.sort(
-          (a, b) =>
-            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-        );
-        break;
-      case "oldest":
-        filtered.sort(
-          (a, b) =>
-            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-        );
-        break;
-      case "most-voted":
-        filtered.sort(
-          (a, b) => (b.votes?.length || 0) - (a.votes?.length || 0)
-        );
-        break;
-      case "unanswered":
-        filtered = filtered.filter((q) => q.answersCount === 0);
-        break;
-      case "bounty":
-        filtered = filtered.filter((q) => (q.votes?.length || 0) > 30);
-        break;
-      default:
-        break;
-    }
+  const handleSearch = useCallback((query: string) => {
+    console.log(`Searching for: ${query}`);
+    setSearchQuery(query);
+    goToPage(1); // Reset to first page when searching
+  }, [goToPage]);
 
-    setFilteredQuestions(filtered);
-  }, [questions, searchQuery, activeFilter, activeTag]);
+  const handleFilterChange = useCallback((filter: string) => {
+    console.log(`Filter changed to: ${filter}`);
+    setActiveFilter(filter);
+    goToPage(1); // Reset to first page when filtering
+  }, [goToPage]);
 
-const handlePageChange = (page: string) => {
-  console.log(`Navigating to page: ${page}`);
-  setCurrentPage(page);
-  setSidebarOpen(false);
-  setSelectedQuestion(null);
-};
-
+  const handleTagClick = useCallback((tag: string) => {
+    console.log(`Tag clicked: ${tag}`);
+    setActiveTag(activeTag === tag ? null : tag);
+    setCurrentPage('home');
+    goToPage(1); // Reset to first page when filtering by tag
+    toast({
+      title: "Tag Filter Applied",
+      description: `Showing questions tagged with "${tag}".`,
+    });
+  }, [activeTag, goToPage, toast]);
 
   const handleLogoClick = () => {
-    console.log("Logo clicked, navigating to home");
-    setCurrentPage("home");
+    console.log('Logo clicked, navigating to home');
+    setCurrentPage('home');
     setSelectedQuestion(null);
     setActiveTag(null);
-    setSearchQuery("");
-    setActiveFilter("newest");
+    setSearchQuery('');
+    setActiveFilter('newest');
     setSidebarOpen(false);
-  };
-
-  const handleQuestionClick = (questionId: string | undefined) => {
-    if (!questionId) {
-      console.error("questionId is undefined");
-      return;
-    }
-    console.log(`Clicked question: ${questionId}`);
-    setSelectedQuestion(questionId);
-    setCurrentPage("question-detail");
-    toast({
-      title: "Question Selected",
-      description: "Loading question details...",
-    });
+    goToPage(1);
   };
 
   const handleLoadMore = async () => {
     setLoadingMore(true);
-    console.log("Loading more questions...");
-
+    console.log('Loading more questions...');
+    
     // Simulate API call
     setTimeout(() => {
       toast({
@@ -239,42 +202,22 @@ const handlePageChange = (page: string) => {
   };
 
   const handleAskQuestion = () => {
-    console.log("Opening ask question modal");
+    console.log('Opening ask question modal');
     setShowAskQuestion(true);
-  };
-
-  const handleSearch = (query: string) => {
-    console.log(`Searching for: ${query}`);
-    setSearchQuery(query);
-  };
-
-  const handleFilterChange = (filter: string) => {
-    console.log(`Filter changed to: ${filter}`);
-    setActiveFilter(filter);
-  };
-
-  const handleTagClick = (tag: string) => {
-    console.log(`Tag clicked: ${tag}`);
-    setActiveTag(activeTag === tag ? null : tag);
-    setCurrentPage("home");
-    toast({
-      title: "Tag Filter Applied",
-      description: `Showing questions tagged with "${tag}".`,
-    });
   };
 
   const handleNotificationClick = (type: string) => {
     console.log(`Notification clicked: ${type}`);
     switch (type) {
-      case "upvote":
-      case "comment":
-        setCurrentPage("profile");
+      case 'upvote':
+      case 'comment':
+        setCurrentPage('profile');
         break;
-      case "badge":
-        setCurrentPage("profile");
+      case 'badge':
+        setCurrentPage('profile');
         break;
       default:
-        setCurrentPage("home");
+        setCurrentPage('home');
     }
     toast({
       title: "Notification",
@@ -282,14 +225,16 @@ const handlePageChange = (page: string) => {
     });
   };
 
-  // if (!user) {
-  //   return <Signup/>;
-  // }
+  useEffect(() => {
+    if (!user && currentPage !== 'auth') {
+      setCurrentPage('auth');
+    }
+  }, [user, currentPage]);
 
-  const selectedQuestionData = selectedQuestion
-    ? questions.find((q) => q._id === selectedQuestion)
-    : null;
-  if (loading) return <div>Loading...</div>;
+
+  const selectedQuestionData = selectedQuestion ? questions.find(q => q.id === selectedQuestion) : null;
+
+
   return (
     <div className="min-h-screen bg-background transition-colors duration-300">
       <Header
@@ -314,129 +259,147 @@ const handlePageChange = (page: string) => {
         <main className="flex-1 md:ml-0">
           
           {currentPage === "home" && (
-            <div className="max-w-7xl mx-auto p-3 sm:p-4 md:p-6 pb-20 md:pb-6">
-              {/* Welcome Section */}
-              <div className="mb-6 md:mb-8">
-                <div className="bg-gradient-to-r from-primary/10 to-accent/10 rounded-2xl p-4 sm:p-6 mb-4 md:mb-6 border border-border">
-                  <h2 className="text-xl sm:text-2xl font-bold mb-2 text-card-foreground">
-                    Welcome back, {user?.name}! 👋
-                  </h2>
-                  <p className="text-muted-foreground mb-4 text-sm sm:text-base">
-                    Ready to help fellow developers or ask your next question?
-                  </p>
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-4 sm:space-y-0 sm:space-x-6 text-sm">
-                    <div className="flex items-center space-x-2">
-                      <span className="text-2xl">🔥</span>
-                      <div>
-                        <p className="font-semibold text-card-foreground">
-                          {user?.streak} day streak
-                        </p>
-                        <p className="text-muted-foreground">Keep it up!</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <span className="text-2xl">⭐</span>
-                      <div>
-                        <p className="font-semibold text-card-foreground">
-                          {user?.reputation} reputation
-                        </p>
-                        <p className="text-muted-foreground">Great work!</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <div className="flex space-x-1">
-                        {user?.badges.map((badge, index) => (
-                          <span key={index} className="text-lg">
-                            {badge}
-                          </span>
-                        ))}
-                      </div>
-                      <div>
-                        <p className="font-semibold text-card-foreground">
-                          Badges
-                        </p>
-                        <p className="text-muted-foreground">Earned</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+  <div className="max-w-7xl mx-auto p-3 sm:p-4 md:p-6 pb-20 md:pb-6">
+    {/* Welcome Section */}
+    <div className="mb-6 md:mb-8">
+      <div className="bg-gradient-to-r from-primary/10 to-accent/10 rounded-2xl p-4 sm:p-6 mb-4 md:mb-6 border border-border">
+        <h2 className="text-xl sm:text-2xl font-bold mb-2 text-card-foreground">
+          Welcome back, {user?.name}! 👋
+        </h2>
+        <p className="text-muted-foreground mb-4 text-sm sm:text-base">
+          Ready to help fellow developers or ask your next question?
+        </p>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-4 sm:space-y-0 sm:space-x-6 text-sm">
+          <div className="flex items-center space-x-2">
+            <span className="text-2xl">🔥</span>
+            <div>
+              <p className="font-semibold text-card-foreground">
+                {user?.streak} day streak
+              </p>
+              <p className="text-muted-foreground">Keep it up!</p>
+            </div>
+          </div>
+          <div className="flex items-center space-x-2">
+            <span className="text-2xl">⭐</span>
+            <div>
+              <p className="font-semibold text-card-foreground">
+                {user?.reputation} reputation
+              </p>
+              <p className="text-muted-foreground">Great work!</p>
+            </div>
+          </div>
+          <div className="flex items-center space-x-2">
+            <div className="flex space-x-1">
+              {user?.badges.map((badge, index) => (
+                <span key={index} className="text-lg">
+                  {badge}
+                </span>
+              ))}
+            </div>
+            <div>
+              <p className="font-semibold text-card-foreground">Badges</p>
+              <p className="text-muted-foreground">Earned</p>
+            </div>
+          </div>
+        </div>
+      </div>
 
-                {/* Quick Actions */}
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 md:mb-6 space-y-4 sm:space-y-0">
-                  <div>
-                    <h3 className="text-lg sm:text-xl font-semibold text-card-foreground">
-                      Latest Questions
-                    </h3>
-                    {activeTag && (
-                      <p className="text-sm text-muted-foreground mt-1">
-                        Filtered by tag:{" "}
-                        <span className="font-medium text-primary">
-                          {activeTag}
-                        </span>
-                        <button
-                          onClick={() => setActiveTag(null)}
-                          className="ml-2 text-xs text-muted-foreground hover:text-foreground"
-                        >
-                          Clear filter
-                        </button>
-                      </p>
-                    )}
-                  </div>
-                  <Button
-                    onClick={handleAskQuestion}
-                    className="font-medium w-full sm:w-auto"
-                  >
-                    Ask Question
-                  </Button>
-                </div>
-              </div>
+      {/* Error display */}
+      {errors.search && (
+        <div className="mb-4 p-3 bg-destructive/10 border border-destructive rounded-lg">
+          <p className="text-sm text-destructive">{errors.search}</p>
+        </div>
+      )}
 
-              {/* Questions Feed */}
-              <div className="space-y-4 md:space-y-6">
-                {filteredQuestions.length > 0 ? (
-                  filteredQuestions.map((question) => (
-                    <QuestionCard
-                      key={question._id}
-                      question={question}
-                      onClick={() => handleQuestionClick(question._id)}
-                      onTagClick={handleTagClick}
-                    />
-                  ))
-                ) : (
-                  <div className="text-center py-12">
-                    <p className="text-muted-foreground text-lg">
-                      No questions found matching your criteria.
-                    </p>
-                    <Button
-                      onClick={() => {
-                        setSearchQuery("");
-                        setActiveTag(null);
-                        setActiveFilter("newest");
-                      }}
-                      variant="outline"
-                      className="mt-4"
-                    >
-                      Clear Filters
-                    </Button>
-                  </div>
-                )}
-              </div>
+      {/* Quick Actions */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 md:mb-6 space-y-4 sm:space-y-0">
+        <div>
+          <h3 className="text-lg sm:text-xl font-semibold text-card-foreground">
+            Latest Questions{" "}
+            {filteredQuestions.length > 0 &&
+              `(${filteredQuestions.length})`}
+          </h3>
+          {activeTag && (
+            <p className="text-sm text-muted-foreground mt-1">
+              Filtered by tag:{" "}
+              <span className="font-medium text-primary">{activeTag}</span>
+              <button
+                onClick={() => setActiveTag(null)}
+                className="ml-2 text-xs text-muted-foreground hover:text-foreground"
+              >
+                Clear filter
+              </button>
+            </p>
+          )}
+        </div>
+        <Button onClick={handleAskQuestion} className="font-medium w-full sm:w-auto">
+          Ask Question
+        </Button>
+      </div>
+    </div>
 
-              {/* Load More */}
-              {filteredQuestions.length > 0 && (
-                <div className="text-center mt-8">
-                  <Button
-                    variant="outline"
-                    onClick={handleLoadMore}
-                    disabled={loadingMore}
-                    className="px-6 py-3"
-                  >
-                    {loadingMore ? "Loading..." : "Load More Questions"}
-                  </Button>
-                </div>
-              )}
+    {/* Questions Feed */}
+    <div className="space-y-4 md:space-y-6">
+      {paginatedQuestions.length > 0 ? (
+        <>
+          {paginatedQuestions.map((question) => (
+            <QuestionCard
+              key={question._id}
+              question={question}
+              onClick={() => handleQuestionClick(question._id)}
+              onTagClick={handleTagClick}
+            />
+          ))}
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex justify-center mt-8">
+              <Pagination
+                currentPage={paginationPage}
+                totalPages={totalPages}
+                onPageChange={goToPage}
+                className="bg-card border border-border rounded-lg p-2"
+              />
             </div>
           )}
+        </>
+      ) : (
+        <div className="text-center py-12">
+          <p className="text-muted-foreground text-lg">
+            No questions found matching your criteria.
+          </p>
+          <Button
+            onClick={() => {
+              setSearchQuery("");
+              setActiveTag(null);
+              setActiveFilter("newest");
+              goToPage(1);
+            }}
+            variant="outline"
+            className="mt-4"
+          >
+            Clear Filters
+          </Button>
+        </div>
+      )}
+    </div>
+
+    {/* Load More */}
+    {filteredQuestions.length > 0 && (
+      <div className="text-center mt-8">
+        <Button
+          variant="outline"
+          onClick={handleLoadMore}
+          disabled={loadingMore}
+          className="px-6 py-3"
+        >
+          {loadingMore ? "Loading..." : "Load More Questions"}
+        </Button>
+      </div>
+    )}
+  </div>
+)}
+
 
           {currentPage === "question-detail" && selectedQuestionData && (
             <QuestionDetail
@@ -602,7 +565,11 @@ const handlePageChange = (page: string) => {
       )}
     </div>
   );
-};
+
+
+}
+
+ 
 
 const Index = () => {
   return (
@@ -615,3 +582,5 @@ const Index = () => {
 };
 
 export default Index;
+
+

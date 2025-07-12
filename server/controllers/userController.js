@@ -1,7 +1,7 @@
 import User from "../models/User.js";
 import Session from "../models/Session.js";
 import bcrypt from "bcryptjs";
-import { verifyToken } from "../utils/generateToken.js";
+import { verifyToken, createToken } from "../utils/generateToken.js";
 import ms from "ms";
 import dotenv from "dotenv";
 dotenv.config();
@@ -53,16 +53,17 @@ export const loginUser = async (req, res) => {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    // 2. Generate tokens
-const accessToken = createToken(user._id.toString(), process.env.ACCESS_TOKEN_DURATION || "15m");
-const refreshToken = createToken(user._id.toString(), process.env.REFRESH_TOKEN_DURATION || "7d");
+    const accessToken = createToken({ userId: user._id }, process.env.ACCESS_TOKEN_DURATION);
+    const refreshToken = createToken({ userId: user._id }, process.env.REFRESH_TOKEN_DURATION);
+
 
     // 3. Store session
     await Session.create({
       userId: user._id,
       accessToken,
       refreshToken,
-      expiresAt: new Date(Date.now() + ms(process.env.ACCESS_TOKEN_DURATION || "15m")),
+
+      expiresAt: new Date(Date.now() + ms(process.env.REFRESH_TOKEN_DURATION)),
     });
 
     // 4. Set refresh token cookie (secure only in prod)
@@ -70,7 +71,9 @@ const refreshToken = createToken(user._id.toString(), process.env.REFRESH_TOKEN_
       httpOnly: true,
       secure: process.env.NODE_ENV === "production", // 🔐 HTTPS only in prod
       sameSite: "strict",
-      maxAge: ms(process.env.REFRESH_TOKEN_DURATION || "7d"),
+
+      maxAge: ms(process.env.REFRESH_TOKEN_DURATION),
+
     });
 
     // 5. Respond with access token and user
@@ -107,14 +110,15 @@ export const refreshAcessToken = async (req, res) => {
       return res.status(403).json({ message: "Refresh token expired" });
     }
 
-    const newAccessToken = generateToken(payload.userId, ACCESS_TOKEN_DURATION);
+    const newAccessToken = createToken({ userId: payload.userId }, process.env.ACCESS_TOKEN_DURATION);
 
     session.accessToken = newAccessToken;
-    session.expiresAt = new Date(Date.now() + ms(ACCESS_TOKEN_DURATION));
+    session.expiresAt = new Date(Date.now() + ms(process.env.ACCESS_TOKEN_DURATION));
     await session.save();
 
     res.status(200).json({ jwt_token: newAccessToken });
   } catch (err) {
+    console.error("Error refreshing access token:", err);
     return res.status(403).json({ message: "Invalid refresh token" });
   }
 };

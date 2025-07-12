@@ -38,7 +38,7 @@ const LoginForm = () => {
   const onSubmit = async (values: z.infer<typeof loginFormSchema>) => {
     setLoading(true);
     try {
-      const response = await api.post("/users/login", values);
+      const response = await api.post("http://localhost:3000/api/users/login", values);
 
       if (response.status === 200 || response.status === 201) {
         const { jwt_token } = response.data;
