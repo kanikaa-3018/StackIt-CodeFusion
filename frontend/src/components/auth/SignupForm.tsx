@@ -144,7 +144,7 @@ const SignupForm = () => {
           name="bio"
           render={({ field }) => (
             <FormItem className={formItemClassName}>
-              <FormLabel>Bio</FormLabel>
+              <FormLabel>Bio (Optional)</FormLabel>
               <FormControl>
                 <Input placeholder="Tell us about yourself" {...field} />
               </FormControl>
@@ -158,7 +158,7 @@ const SignupForm = () => {
           name="avatar"
           render={({ field }) => (
             <FormItem className={formItemClassName}>
-              <FormLabel>Avatar URL</FormLabel>
+              <FormLabel>Avatar URL (Optional)</FormLabel>
               <FormControl>
                 <Input placeholder="https://example.com/avatar.jpg" {...field} />
               </FormControl>
