@@ -1,0 +1,511 @@
+
+import React, { useState, useEffect } from 'react';
+import { AuthProvider } from '../contexts/AuthContext';
+import { ThemeProvider } from '../contexts/ThemeContext';
+import { useAuth } from '../contexts/AuthContext';
+import { Button } from '@/components/ui/button';
+import Header from '../components/Header';
+import Sidebar from '../components/Sidebar';
+import QuestionCard from '../components/QuestionCard';
+import QuestionDetail from '../components/QuestionDetail';
+import AuthPage from '../components/AuthPage';
+import AskQuestion from '../components/AskQuestion';
+import MobileNavigation from '../components/MobileNavigation';
+import { useToast } from '@/hooks/use-toast';
+
+// Mock data
+const mockQuestions = [
+  {
+    id: '1',
+    title: 'How to handle async/await with error handling in React?',
+    content: 'I\'m trying to implement proper error handling with async/await in my React component. What\'s the best practice for handling errors and loading states?',
+    author: {
+      name: 'Sarah Chen',
+      reputation: 1250,
+      badges: ['⭐', '🔥', '🚀']
+    },
+    tags: ['React', 'JavaScript', 'Async'],
+    votes: 23,
+    answers: 5,
+    views: 156,
+    createdAt: new Date('2024-01-10'),
+    hasAcceptedAnswer: true
+  },
+  {
+    id: '2',
+    title: 'TypeScript generic constraints not working as expected',
+    content: 'I have a generic function with constraints but TypeScript is still allowing types that shouldn\'t be allowed. Here\'s my code...',
+    author: {
+      name: 'Alex Kumar',
+      reputation: 890,
+      badges: ['💎', '⚡']
+    },
+    tags: ['TypeScript', 'Generics'],
+    votes: 15,
+    answers: 3,
+    views: 89,
+    createdAt: new Date('2024-01-11'),
+    hasAcceptedAnswer: false
+  },
+  {
+    id: '3',
+    title: 'CSS Grid vs Flexbox - When to use which?',
+    content: 'I\'m confused about when I should use CSS Grid versus Flexbox. Can someone explain the key differences and use cases?',
+    author: {
+      name: 'Emma Wilson',
+      reputation: 567,
+      badges: ['🎨', '✨']
+    },
+    tags: ['CSS', 'Grid', 'Flexbox'],
+    votes: 42,
+    answers: 8,
+    views: 234,
+    createdAt: new Date('2024-01-09'),
+    hasAcceptedAnswer: true
+  },
+  {
+    id: '4',
+    title: 'Node.js memory leak in production - help needed!',
+    content: 'My Node.js application is experiencing memory leaks in production. I\'ve tried using heapdump but can\'t identify the issue.',
+    author: {
+      name: 'Michael Park',
+      reputation: 1890,
+      badges: ['🔧', '⚡', '🏆']
+    },
+    tags: ['Node.js', 'Memory', 'Production'],
+    votes: 31,
+    answers: 6,
+    views: 178,
+    createdAt: new Date('2024-01-08'),
+    hasAcceptedAnswer: false
+  },
+  {
+    id: '5',
+    title: 'Best practices for React state management in 2024?',
+    content: 'With so many options like Redux, Zustand, Context API, what are the current best practices for state management in React applications?',
+    author: {
+      name: 'Lisa Zhang',
+      reputation: 2156,
+      badges: ['👑', '🌟', '🚀', '💡']
+    },
+    tags: ['React', 'State Management', 'Redux'],
+    votes: 67,
+    answers: 12,
+    views: 445,
+    createdAt: new Date('2024-01-07'),
+    hasAcceptedAnswer: true
+  }
+];
+
+const AppContent: React.FC = () => {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [currentPage, setCurrentPage] = useState('home');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showAskQuestion, setShowAskQuestion] = useState(false);
+  const [selectedQuestion, setSelectedQuestion] = useState<string | null>(null);
+  const [questions, setQuestions] = useState(mockQuestions);
+  const [filteredQuestions, setFilteredQuestions] = useState(mockQuestions);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeFilter, setActiveFilter] = useState('newest');
+  const [activeTag, setActiveTag] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user && currentPage !== 'auth') {
+      setCurrentPage('auth');
+    }
+  }, [user, currentPage]);
+
+  // Filter questions based on search query, filter, and tag
+  useEffect(() => {
+    let filtered = [...questions];
+
+    // Apply search filter
+    if (searchQuery) {
+      filtered = filtered.filter(q => 
+        q.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        q.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        q.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
+      );
+    }
+
+    // Apply tag filter
+    if (activeTag) {
+      filtered = filtered.filter(q => q.tags.includes(activeTag));
+    }
+
+    // Apply sorting filter
+    switch (activeFilter) {
+      case 'newest':
+        filtered.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+        break;
+      case 'oldest':
+        filtered.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+        break;
+      case 'most-voted':
+        filtered.sort((a, b) => b.votes - a.votes);
+        break;
+      case 'unanswered':
+        filtered = filtered.filter(q => q.answers === 0);
+        break;
+      case 'bounty':
+        // Mock bounty filter
+        filtered = filtered.filter(q => q.votes > 30);
+        break;
+      default:
+        break;
+    }
+
+    setFilteredQuestions(filtered);
+  }, [questions, searchQuery, activeFilter, activeTag]);
+
+  const handlePageChange = (page: string) => {
+    console.log(`Navigating to page: ${page}`);
+    setCurrentPage(page);
+    setSidebarOpen(false);
+    setSelectedQuestion(null);
+
+    if (page === 'ask') {
+      setShowAskQuestion(true);
+    }
+  };
+
+  const handleLogoClick = () => {
+    console.log('Logo clicked, navigating to home');
+    setCurrentPage('home');
+    setSelectedQuestion(null);
+    setActiveTag(null);
+    setSearchQuery('');
+    setActiveFilter('newest');
+    setSidebarOpen(false);
+  };
+
+  const handleQuestionClick = (questionId: string) => {
+    console.log(`Clicked question: ${questionId}`);
+    setSelectedQuestion(questionId);
+    setCurrentPage('question-detail');
+    toast({
+      title: "Question Selected",
+      description: "Loading question details...",
+    });
+  };
+
+  const handleLoadMore = async () => {
+    setLoadingMore(true);
+    console.log('Loading more questions...');
+    
+    // Simulate API call
+    setTimeout(() => {
+      toast({
+        title: "More Questions Loaded",
+        description: "Additional questions have been loaded successfully.",
+      });
+      setLoadingMore(false);
+    }, 1000);
+  };
+
+  const handleAskQuestion = () => {
+    console.log('Opening ask question modal');
+    setShowAskQuestion(true);
+  };
+
+  const handleSearch = (query: string) => {
+    console.log(`Searching for: ${query}`);
+    setSearchQuery(query);
+  };
+
+  const handleFilterChange = (filter: string) => {
+    console.log(`Filter changed to: ${filter}`);
+    setActiveFilter(filter);
+  };
+
+  const handleTagClick = (tag: string) => {
+    console.log(`Tag clicked: ${tag}`);
+    setActiveTag(activeTag === tag ? null : tag);
+    setCurrentPage('home');
+    toast({
+      title: "Tag Filter Applied",
+      description: `Showing questions tagged with "${tag}".`,
+    });
+  };
+
+  const handleNotificationClick = (type: string) => {
+    console.log(`Notification clicked: ${type}`);
+    switch (type) {
+      case 'upvote':
+      case 'comment':
+        setCurrentPage('profile');
+        break;
+      case 'badge':
+        setCurrentPage('profile');
+        break;
+      default:
+        setCurrentPage('home');
+    }
+    toast({
+      title: "Notification",
+      description: "Navigating to relevant section...",
+    });
+  };
+
+  if (!user) {
+    return <AuthPage />;
+  }
+
+  const selectedQuestionData = selectedQuestion ? questions.find(q => q.id === selectedQuestion) : null;
+
+  return (
+    <div className="min-h-screen bg-background transition-colors duration-300">
+      <Header
+        onMenuToggle={() => setSidebarOpen(!sidebarOpen)}
+        currentPage={currentPage}
+        onPageChange={handlePageChange}
+        onLogoClick={handleLogoClick}
+        onSearch={handleSearch}
+        onNotificationClick={handleNotificationClick}
+      />
+
+      <div className="flex">
+        <Sidebar 
+          isOpen={sidebarOpen} 
+          onClose={() => setSidebarOpen(false)}
+          activeFilter={activeFilter}
+          onFilterChange={handleFilterChange}
+          onTagClick={handleTagClick}
+          activeTag={activeTag}
+        />
+        
+        <main className="flex-1 md:ml-0">
+          {currentPage === 'home' && (
+            <div className="max-w-7xl mx-auto p-3 sm:p-4 md:p-6 pb-20 md:pb-6">
+              {/* Welcome Section */}
+              <div className="mb-6 md:mb-8">
+                <div className="bg-gradient-to-r from-primary/10 to-accent/10 rounded-2xl p-4 sm:p-6 mb-4 md:mb-6 border border-border">
+                  <h2 className="text-xl sm:text-2xl font-bold mb-2 text-card-foreground">
+                    Welcome back, {user.name}! 👋
+                  </h2>
+                  <p className="text-muted-foreground mb-4 text-sm sm:text-base">
+                    Ready to help fellow developers or ask your next question?
+                  </p>
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-4 sm:space-y-0 sm:space-x-6 text-sm">
+                    <div className="flex items-center space-x-2">
+                      <span className="text-2xl">🔥</span>
+                      <div>
+                        <p className="font-semibold text-card-foreground">{user.streak} day streak</p>
+                        <p className="text-muted-foreground">Keep it up!</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-2xl">⭐</span>
+                      <div>
+                        <p className="font-semibold text-card-foreground">{user.reputation} reputation</p>
+                        <p className="text-muted-foreground">Great work!</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <div className="flex space-x-1">
+                        {user.badges.map((badge, index) => (
+                          <span key={index} className="text-lg">{badge}</span>
+                        ))}
+                      </div>
+                      <div>
+                        <p className="font-semibold text-card-foreground">Badges</p>
+                        <p className="text-muted-foreground">Earned</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Quick Actions */}
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 md:mb-6 space-y-4 sm:space-y-0">
+                  <div>
+                    <h3 className="text-lg sm:text-xl font-semibold text-card-foreground">Latest Questions</h3>
+                    {activeTag && (
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Filtered by tag: <span className="font-medium text-primary">{activeTag}</span>
+                        <button 
+                          onClick={() => setActiveTag(null)}
+                          className="ml-2 text-xs text-muted-foreground hover:text-foreground"
+                        >
+                          Clear filter
+                        </button>
+                      </p>
+                    )}
+                  </div>
+                  <Button onClick={handleAskQuestion} className="font-medium w-full sm:w-auto">
+                    Ask Question
+                  </Button>
+                </div>
+              </div>
+
+              {/* Questions Feed */}
+              <div className="space-y-4 md:space-y-6">
+                {filteredQuestions.length > 0 ? (
+                  filteredQuestions.map((question) => (
+                    <QuestionCard
+                      key={question.id}
+                      question={question}
+                      onClick={() => handleQuestionClick(question.id)}
+                      onTagClick={handleTagClick}
+                    />
+                  ))
+                ) : (
+                  <div className="text-center py-12">
+                    <p className="text-muted-foreground text-lg">No questions found matching your criteria.</p>
+                    <Button onClick={() => {
+                      setSearchQuery('');
+                      setActiveTag(null);
+                      setActiveFilter('newest');
+                    }} variant="outline" className="mt-4">
+                      Clear Filters
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              {/* Load More */}
+              {filteredQuestions.length > 0 && (
+                <div className="text-center mt-8">
+                  <Button 
+                    variant="outline" 
+                    onClick={handleLoadMore}
+                    disabled={loadingMore}
+                    className="px-6 py-3"
+                  >
+                    {loadingMore ? 'Loading...' : 'Load More Questions'}
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {currentPage === 'question-detail' && selectedQuestionData && (
+            <QuestionDetail 
+              question={selectedQuestionData} 
+              onBack={() => setCurrentPage('home')}
+              onTagClick={handleTagClick}
+            />
+          )}
+
+          {currentPage === 'profile' && (
+            <div className="max-w-4xl mx-auto p-3 sm:p-4 md:p-6 pb-20 md:pb-6">
+              <div className="bg-card border border-border rounded-2xl p-6 md:p-8 shadow-sm">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-4 sm:space-y-0 sm:space-x-6 mb-8">
+                  <div className="w-16 h-16 sm:w-20 sm:h-20 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-xl sm:text-2xl font-bold">
+                    {user.name.charAt(0)}
+                  </div>
+                  <div>
+                    <h2 className="text-xl sm:text-2xl font-bold text-card-foreground">{user.name}</h2>
+                    <p className="text-muted-foreground">{user.email}</p>
+                    <p className="text-sm text-muted-foreground">
+                      Member since {user.joinedAt.toLocaleDateString()}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6 mb-8">
+                  <div className="bg-muted rounded-lg p-4 text-center">
+                    <p className="text-2xl font-bold text-primary">{user.reputation}</p>
+                    <p className="text-sm text-muted-foreground">Reputation</p>
+                  </div>
+                  <div className="bg-muted rounded-lg p-4 text-center">
+                    <p className="text-2xl font-bold text-green-600">{user.streak}</p>
+                    <p className="text-sm text-muted-foreground">Day Streak</p>
+                  </div>
+                  <div className="bg-muted rounded-lg p-4 text-center">
+                    <div className="flex justify-center space-x-1 mb-2">
+                      {user.badges.map((badge, index) => (
+                        <span key={index} className="text-xl">{badge}</span>
+                      ))}
+                    </div>
+                    <p className="text-sm text-muted-foreground">Badges Earned</p>
+                  </div>
+                </div>
+
+                <div className="border-t border-border pt-6">
+                  <h3 className="text-lg font-semibold mb-4 text-card-foreground">Activity</h3>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between py-2">
+                      <span className="text-sm text-muted-foreground">Questions Asked</span>
+                      <span className="font-medium text-card-foreground">12</span>
+                    </div>
+                    <div className="flex items-center justify-between py-2">
+                      <span className="text-sm text-muted-foreground">Answers Given</span>
+                      <span className="font-medium text-card-foreground">34</span>
+                    </div>
+                    <div className="flex items-center justify-between py-2">
+                      <span className="text-sm text-muted-foreground">Helpful Votes</span>
+                      <span className="font-medium text-card-foreground">156</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {currentPage === 'questions' && (
+            <div className="max-w-4xl mx-auto p-3 sm:p-4 md:p-6 pb-20 md:pb-6">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 space-y-4 sm:space-y-0">
+                <h2 className="text-xl sm:text-2xl font-bold text-card-foreground">All Questions</h2>
+                <Button onClick={handleAskQuestion} className="w-full sm:w-auto">Ask Question</Button>
+              </div>
+              <div className="space-y-4 md:space-y-6">
+                {filteredQuestions.map((question) => (
+                  <QuestionCard
+                    key={question.id}
+                    question={question}
+                    onClick={() => handleQuestionClick(question.id)}
+                    onTagClick={handleTagClick}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {currentPage === 'tags' && (
+            <div className="max-w-4xl mx-auto p-3 sm:p-4 md:p-6 pb-20 md:pb-6">
+              <h2 className="text-xl sm:text-2xl font-bold text-card-foreground mb-6">Popular Tags</h2>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                {['React', 'JavaScript', 'TypeScript', 'CSS', 'Node.js', 'Python', 'HTML', 'Git'].map((tag) => (
+                  <Button 
+                    key={tag} 
+                    variant={activeTag === tag ? "default" : "outline"} 
+                    className="h-16 sm:h-20 flex-col"
+                    onClick={() => {
+                      handleTagClick(tag);
+                      setCurrentPage('home');
+                    }}
+                  >
+                    <span className="font-semibold text-sm sm:text-base">{tag}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {Math.floor(Math.random() * 100) + 10} questions
+                    </span>
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
+        </main>
+      </div>
+
+      <MobileNavigation currentPage={currentPage} onPageChange={handlePageChange} />
+
+      {showAskQuestion && (
+        <AskQuestion onClose={() => setShowAskQuestion(false)} />
+      )}
+    </div>
+  );
+};
+
+const Index = () => {
+  return (
+    <ThemeProvider>
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
+    </ThemeProvider>
+  );
+};
+
+export default Index;
