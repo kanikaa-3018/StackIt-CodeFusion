@@ -1,3 +1,5 @@
+import mongoose from "mongoose";
+
 const AnswerSchema = new mongoose.Schema({
   question: { type: mongoose.Schema.Types.ObjectId, ref: 'Question', required: true },
   author: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
