@@ -2,6 +2,7 @@ import express from 'express';
 import dotenv from 'dotenv';
 import connectDB from './config/db.js';
 import userRoutes from './routes/userRoutes.js';
+import questionRoutes from './routes/questionRoutes.js'
 import cors from 'cors';
 
 dotenv.config();
@@ -15,6 +16,7 @@ app.use(express.json());
 
 // Routes
 app.use('/api/users', userRoutes);
+app.use('/api/questions', questionRoutes);
 
 // Root route
 app.get('/', (req, res) => {
