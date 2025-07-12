@@ -1,19 +1,19 @@
-import jwt from 'jsonwebtoken';
-import User from '../models/User.js';
-import dotenv from 'dotenv';
-dotenv.config()
+import jwt from "jsonwebtoken";
+import dotenv from "dotenv";
+dotenv.config();
 
-export const protect = async (req, res, next) => {
-  let token = req.headers.authorization?.split(' ')[1];
+export const protect = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith("Bearer ")) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
 
-  if (!token) return res.status(401).json({ message: 'Not authorized, no token' });
-
+  const token = authHeader.split(" ")[1];
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = await User.findById(decoded.id).select('-password');
-    if (req.user.banned) return res.status(403).json({ message: 'User is banned' });
+    const payload = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = payload;
     next();
   } catch {
-    res.status(401).json({ message: 'Token invalid or expired' });
+    return res.status(401).json({ error: "Invalid token" });
   }
 };

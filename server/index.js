@@ -3,12 +3,9 @@ import dotenv from 'dotenv';
 import connectDB from './config/db.js';
 import userRoutes from './routes/userRoutes.js';
 import questionRoutes from './routes/questionRoutes.js'
-import roomRoutes from './routes/roomRoutes.js'
-import messageRoutes from './routes/messageRoutes.js'
-import commentRoutes from './routes/commentRoutes.js'
-import notificationRoutes from './routes/notificationRoutes.js'
 import cors from 'cors';
-
+import cookieParser from "cookie-parser";
+import answerRoutes from './routes/answerRoute.js';
 dotenv.config();
 connectDB();
 
@@ -17,15 +14,12 @@ const app = express();
 // Middleware
 app.use(cors());
 app.use(express.json());
+app.use(cookieParser());
 
 // Routes
 app.use('/api/users', userRoutes);
 app.use('/api/questions', questionRoutes);
-app.use('/api/rooms', roomRoutes);
-app.use('/api/message', messageRoutes);
-app.use('/api/comment', commentRoutes);
-app.use('/api/notifications', notificationRoutes)
-
+app.use('/api/answers', answerRoutes);
 // Root route
 app.get('/', (req, res) => {
   res.send('StackIt API is running...');
