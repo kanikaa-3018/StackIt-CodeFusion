@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+pymongo
+openai
+scikit-learn
+sentence-transformers
+python-dotenv
