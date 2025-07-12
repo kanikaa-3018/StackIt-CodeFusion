@@ -5,6 +5,7 @@ import { verifyToken, createToken } from "../utils/generateToken.js";
 import ms from "ms";
 import dotenv from "dotenv";
 dotenv.config();
+import {createToken} from "../utils/generateToken.js"
 
 export const registerUser = async (req, res) => {
   const { username, email, password, bio, avatar, role } = req.body;
@@ -46,6 +47,7 @@ export const loginUser = async (req, res) => {
   const { email, password } = req.body;
 
   try {
+    // 1. Check if user exists
     const user = await User.findOne({ email });
     if (!user || !(await bcrypt.compare(password, user.password))) {
       return res.status(401).json({ message: "Invalid credentials" });
@@ -54,20 +56,27 @@ export const loginUser = async (req, res) => {
     const accessToken = createToken({ userId: user._id }, process.env.ACCESS_TOKEN_DURATION);
     const refreshToken = createToken({ userId: user._id }, process.env.REFRESH_TOKEN_DURATION);
 
+
+    // 3. Store session
     await Session.create({
       userId: user._id,
       accessToken,
       refreshToken,
+
       expiresAt: new Date(Date.now() + ms(process.env.REFRESH_TOKEN_DURATION)),
     });
 
+    // 4. Set refresh token cookie (secure only in prod)
     res.cookie("refresh_token", refreshToken, {
       httpOnly: true,
-      secure: true,
+      secure: process.env.NODE_ENV === "production", // 🔐 HTTPS only in prod
       sameSite: "strict",
+
       maxAge: ms(process.env.REFRESH_TOKEN_DURATION),
+
     });
 
+    // 5. Respond with access token and user
     res.status(200).json({
       jwt_token: accessToken,
       user: {
@@ -77,7 +86,8 @@ export const loginUser = async (req, res) => {
       },
     });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error("Login error:", err);
+    res.status(500).json({ message: "Server error. Please try again later." });
   }
 };
 

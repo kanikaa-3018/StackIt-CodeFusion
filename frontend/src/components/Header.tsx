@@ -5,8 +5,10 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import { useNavigate } from 'react-router-dom';
 import AskQuestion from '../components/AskQuestion';
 import { useIsMobile } from '@/hooks/use-mobile';
+
 interface HeaderProps {
   onMenuToggle: () => void;
   currentPage: string;
@@ -24,6 +26,7 @@ const Header: React.FC<HeaderProps> = ({
   onSearch,
   onNotificationClick
 }) => {
+  const navigate=useNavigate()
   const { user, logout } = useAuth();
   const { isDark, toggleTheme } = useTheme();
   const { toast } = useToast();
@@ -111,9 +114,9 @@ const Header: React.FC<HeaderProps> = ({
   return (
     <>
       <header className="bg-card/95 backdrop-blur-md border-b border-border sticky top-0 z-50 transition-colors duration-300">
-        <>
+        
 
-        </>
+        
         <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8">
           <div className="flex items-center justify-between h-14 sm:h-16">
             {/* Logo and Navigation */}
@@ -281,14 +284,63 @@ const Header: React.FC<HeaderProps> = ({
                 </>
               )}
 
+                <div className="relative dropdown-container">
+                  <Button
+                    variant="ghost"
+                    onClick={handleProfileClick}
+                    className="flex items-center space-x-1 sm:space-x-2 h-auto py-2 px-2 sm:px-3"
+                  >
+                    <div className="w-6 h-6 sm:w-8 sm:h-8 bg-primary text-primary-foreground rounded-full flex items-center justify-center">
+                      <User className="w-3 h-3 sm:w-4 sm:h-4" />
+                    </div>
+                    <div className="hidden sm:block text-left">
+                      <p className="text-sm font-medium text-card-foreground">{user.name}</p>
+                      <p className="text-xs text-muted-foreground">{user.reputation} rep</p>
+                    </div>
+                  </Button>
+
+                  {showProfileMenu && (
+                    <div className="absolute right-0 mt-2 w-48 bg-popover border border-border rounded-xl shadow-lg py-2 animate-fade-in z-50">
+                      <Button
+                        variant="ghost"
+                        onClick={() => {
+                          onPageChange('profile');
+                          setShowProfileMenu(false);
+                        }}
+                        className="w-full justify-start px-4 py-2 text-popover-foreground hover:bg-muted"
+                      >
+                        <User className="w-4 h-4 mr-2" />
+                        Profile
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        onClick={handleLogout}
+                        className="w-full justify-start px-4 py-2 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      >
+                        <LogOut className="w-4 h-4 mr-2" />
+                        Logout
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+
+            {!user && (
+              <Button onClick={() =>navigate('login')} size="sm">
+               Log In
+              </Button>
+            )}
+
               {!user && (
                 <Button onClick={() => onPageChange('auth')} size="sm">
                   Sign In
                 </Button>
               )}
             </div>
+
           </div>
-        </div>
+       
       </header>
       {showAskQuestion && (
         <AskQuestion onClose={() => setShowAskQuestion(false)} />

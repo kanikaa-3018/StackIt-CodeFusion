@@ -35,8 +35,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check for stored user session
-    const storedUser = localStorage.getItem('stackit_user');
+
+    const storedUser = localStorage.getItem('acessToken');
     if (storedUser) {
       const parsedUser = JSON.parse(storedUser);
       // Convert joinedAt back to Date object

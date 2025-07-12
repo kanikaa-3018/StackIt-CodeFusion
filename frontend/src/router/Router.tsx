@@ -6,6 +6,7 @@ import ProtectedRoute from "./ProtectedRoute";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import AddQuestion from "@/pages/AddQuestion";
 import Home from "@/pages/Home";
+import Index from "@/pages/Index";
 
 const Router = () => {
   return (
@@ -14,7 +15,7 @@ const Router = () => {
         element={
           <DashboardLayout />
         }>
-        <Route path="/" element={<Home />} />
+      {/* <Route path="/" element={<Index/>} /> */}
       </Route>
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
