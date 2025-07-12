@@ -5,7 +5,6 @@ import { verifyToken, createToken } from "../utils/generateToken.js";
 import ms from "ms";
 import dotenv from "dotenv";
 dotenv.config();
-import {createToken} from "../utils/generateToken.js"
 
 export const registerUser = async (req, res) => {
   const { username, email, password, bio, avatar, role } = req.body;

@@ -1,13 +1,16 @@
-const express = require('express');
+import express from 'express';
+import {
+    getRecommendations,
+    suggestTags,
+    summarizeAnswers,
+    rephraseQuestion
+} from '../controllers/aiController.js';
+
 const router = express.Router();
-const aiController = require('../controllers/aiController');
 
-router.get('/recommend/:question_id', aiController.getRecommendations);
+router.get('/recommend/:question_id', getRecommendations);
+router.post('/tags', suggestTags);
+router.post('/summarize', summarizeAnswers);
+router.post('/rephrase', rephraseQuestion);
 
-router.post('/tags', aiController.suggestTags);
-
-router.post('/summarize', aiController.summarizeAnswers);
-
-router.post('/rephrase', aiController.rephraseQuestion);
-
-module.exports = router;
+export default router;

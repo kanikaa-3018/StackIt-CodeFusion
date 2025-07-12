@@ -1,8 +1,9 @@
-const axios = require('axios');
+// aiController.js
+import axios from 'axios';
 
 const FASTAPI_BASE_URL = 'http://localhost:8000';
 
-exports.getRecommendations = async (req, res) => {
+export async function getRecommendations(req, res) {
     const { question_id } = req.params;
 
     try {
@@ -12,9 +13,9 @@ exports.getRecommendations = async (req, res) => {
         console.error('Error fetching recommendations:', error.message);
         res.status(500).json({ error: 'Failed to fetch recommendations' });
     }
-};
+}
 
-exports.suggestTags = async (req, res) => {
+export async function suggestTags(req, res) {
     const { text } = req.body;
 
     try {
@@ -24,9 +25,9 @@ exports.suggestTags = async (req, res) => {
         console.error('Error suggesting tags:', error.message);
         res.status(500).json({ error: 'Failed to suggest tags' });
     }
-};
+}
 
-exports.summarizeAnswers = async (req, res) => {
+export async function summarizeAnswers(req, res) {
     const { answers } = req.body;
 
     try {
@@ -36,9 +37,9 @@ exports.summarizeAnswers = async (req, res) => {
         console.error('Error summarizing answers:', error.message);
         res.status(500).json({ error: 'Failed to summarize answers' });
     }
-};
+}
 
-exports.rephraseQuestion = async (req, res) => {
+export async function rephraseQuestion(req, res) {
     const { title, description } = req.body;
 
     try {
@@ -48,4 +49,4 @@ exports.rephraseQuestion = async (req, res) => {
         console.error('Error rephrasing question:', error.message);
         res.status(500).json({ error: 'Failed to rephrase question' });
     }
-};
+}
