@@ -147,9 +147,9 @@ A concise walkthrough of key user journeys in StackIt:
 ## 🤝 Team & Collaboration  
 - **CodeFusion**  
   - Lead: Nishant (nhnishantharkut@gmail.com)  
-  - Backend & Real-time: Member A  
-  - Frontend & UI/UX: Member B  
-  - QA & DevOps: Member C
+  - Backend & Real-time: Kanika and Sidrah
+  - Frontend & UI/UX: Nishant 
+  - Ai & DevOps : Debdip
 
 **GitHub Workflow**:  
 - Feature branches, pull request reviews, linting + tests on CI.  
