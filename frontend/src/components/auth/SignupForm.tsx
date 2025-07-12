@@ -52,7 +52,7 @@ const SignupForm = () => {
     try {
       const { confirmPassword, ...signupData } = values;
 
-      const response = await api.post("/users/register", signupData);
+      const response = await api.post("http://localhost:3000/api/users/register", signupData);
 
       if (response.status === 200 || response.status === 201) {
         toast.success("Account created successfully! Please log in.");
