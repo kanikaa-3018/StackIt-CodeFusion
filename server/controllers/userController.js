@@ -1,7 +1,7 @@
 import User from "../models/User.js";
 import Session from "../models/Session.js";
 import bcrypt from "bcryptjs";
-import { verifyToken } from "../utils/generateToken.js";
+import { verifyToken, createToken } from "../utils/generateToken.js";
 import ms from "ms";
 import dotenv from "dotenv";
 dotenv.config();
@@ -51,21 +51,21 @@ export const loginUser = async (req, res) => {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    const accessToken = generateToken(user._id, ACCESS_TOKEN_DURATION);
-    const refreshToken = generateToken(user._id, REFRESH_TOKEN_DURATION);
+    const accessToken = createToken({ userId: user._id }, process.env.ACCESS_TOKEN_DURATION);
+    const refreshToken = createToken({ userId: user._id }, process.env.REFRESH_TOKEN_DURATION);
 
     await Session.create({
       userId: user._id,
       accessToken,
       refreshToken,
-      expiresAt: new Date(Date.now() + ms(ACCESS_TOKEN_DURATION)),
+      expiresAt: new Date(Date.now() + ms(process.env.ACCESS_TOKEN_DURATION)),
     });
 
     res.cookie("refresh_token", refreshToken, {
       httpOnly: true,
       secure: true,
       sameSite: "strict",
-      maxAge: ms(REFRESH_TOKEN_DURATION),
+      maxAge: ms(process.env.REFRESH_TOKEN_DURATION),
     });
 
     res.status(200).json({
@@ -100,10 +100,10 @@ export const refreshAcessToken = async (req, res) => {
       return res.status(403).json({ message: "Refresh token expired" });
     }
 
-    const newAccessToken = generateToken(payload.userId, ACCESS_TOKEN_DURATION);
+    const newAccessToken = createToken({ userId: payload.userId }, process.env.ACCESS_TOKEN_DURATION);
 
     session.accessToken = newAccessToken;
-    session.expiresAt = new Date(Date.now() + ms(ACCESS_TOKEN_DURATION));
+    session.expiresAt = new Date(Date.now() + ms(process.env.ACCESS_TOKEN_DURATION));
     await session.save();
 
     res.status(200).json({ jwt_token: newAccessToken });

@@ -21,8 +21,8 @@ api.interceptors.response.use(
     const originalRequest = error.config;
 
     if (
-      originalRequest.url.includes("/login_user") ||
-      originalRequest.url.includes("/refresh_access_token")
+      originalRequest.url.includes("/users/login") ||
+      originalRequest.url.includes("/users/refresh_access_token")
     ) {
       return Promise.reject(error);
     }

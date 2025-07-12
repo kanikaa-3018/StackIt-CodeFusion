@@ -52,7 +52,7 @@ const SignupForm = () => {
 
       const response = await api.post("/users/register", signupData);
 
-      if (response.status === 200) {
+      if (response.status === 200 || response.status === 201) {
         toast.success("Account created successfully! Please log in.");
       } else {
         throw new Error("Unexpected response from server");
