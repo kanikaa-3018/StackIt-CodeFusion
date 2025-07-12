@@ -3,6 +3,10 @@ import dotenv from 'dotenv';
 import connectDB from './config/db.js';
 import userRoutes from './routes/userRoutes.js';
 import questionRoutes from './routes/questionRoutes.js'
+import roomRoutes from './routes/roomRoutes.js'
+import messageRoutes from './routes/messageRoutes.js'
+import commentRoutes from './routes/commentRoutes.js'
+import notificationRoutes from './routes/notificationRoutes.js'
 import cors from 'cors';
 
 dotenv.config();
@@ -17,6 +21,10 @@ app.use(express.json());
 // Routes
 app.use('/api/users', userRoutes);
 app.use('/api/questions', questionRoutes);
+app.use('/api/rooms', roomRoutes);
+app.use('/api/message', messageRoutes);
+app.use('/api/comment', commentRoutes);
+app.use('/api/notifications', notificationRoutes)
 
 // Root route
 app.get('/', (req, res) => {
