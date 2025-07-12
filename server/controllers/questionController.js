@@ -40,6 +40,29 @@ export const getAllQuestions = async (req, res) => {
   }
 };
 
+// export const getQuestionById = async (req, res) => {
+//   const questionId = req.query.id; // <-- using query instead of req.params.id
+//   try {
+//     const question = await Question.findByIdAndUpdate(
+//       questionId,
+//       { $inc: { views: 1 } },
+//       { new: true }
+//     )
+//       .populate('author', 'username avatar')
+//       .populate({
+//         path: 'acceptedAnswer',
+//         populate: { path: 'author', select: 'username avatar' },
+//       });
+
+//     if (!question) return res.status(404).json({ message: 'Question not found' });
+
+//     res.json(question);
+//   } catch (err) {
+//     res.status(500).json({ message: err.message });
+//   }
+// };
+
+
 // GET /api/questions/:id
 export const getQuestionById = async (req, res) => {
   try {

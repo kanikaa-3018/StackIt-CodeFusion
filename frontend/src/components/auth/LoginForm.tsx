@@ -16,7 +16,7 @@ import { toast } from "react-toastify";
 import api from "@/api/axios";
 import { useNavigate } from "react-router-dom";
 import ToastComponent from "../misc/ToastComponent";
-import { setAccessToken } from "@/utils/tokenManager";
+import { getAccessToken, setAccessToken } from "@/utils/tokenManager";
 
 const loginFormSchema = z.object({
   email: z.string().email("Invalid email"),
@@ -40,10 +40,11 @@ const LoginForm = () => {
     try {
       const response = await api.post("/users/login", values);
 
-      if (response.status === 200) {
+      if (response.status === 200 || response.status === 201) {
         const { jwt_token } = response.data;
 
         setAccessToken(jwt_token);
+        console.log(getAccessToken());
 
         toast.success("Login successful! Redirecting...");
         console.log("Login response:", response.data);

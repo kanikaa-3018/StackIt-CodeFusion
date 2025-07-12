@@ -28,53 +28,56 @@ const AskQuestionForm: React.FC<AskQuestionFormProps> = ({ onClose, onSubmit }) 
     setTags(tags.filter(tag => tag !== tagToRemove));
   };
 
-  const handleSubmit = () => {
-    if (!title.trim()) {
-      toast({
-        title: "Error",
-        description: "Please enter a question title.",
-        variant: "destructive"
-      });
-      return;
-    }
+ const handleSubmit = async () => {
+  if (!title.trim() || !content.trim() || tags.length === 0) {
+    toast({
+      title: "Error",
+      description: "All fields are required.",
+      variant: "destructive"
+    });
+    return;
+  }
 
-    if (!content.trim()) {
-      toast({
-        title: "Error",
-        description: "Please provide details about your question.",
-        variant: "destructive"
-      });
-      return;
-    }
+  const questionData = {
+    title: title.trim(),
+    description: content.trim(), 
+    tags,
+  };
 
-    if (tags.length === 0) {
-      toast({
-        title: "Error",
-        description: "Please add at least one tag to categorize your question.",
-        variant: "destructive"
-      });
-      return;
-    }
+  try {
+    const res = await fetch(`${import.meta.env.VITE_API_URL}/api/questions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${localStorage.getItem('token')}`, 
+      },
+      body: JSON.stringify(questionData),
+    });
 
-    const questionData = {
-      title: title.trim(),
-      content: content.trim(),
-      tags
-    };
-
-    console.log('Submitting question:', questionData);
-    
-    if (onSubmit) {
-      onSubmit(questionData);
+    if (!res.ok) {
+      throw new Error((await res.json()).message || "Failed to post question.");
     }
+    console.log(res.json())
+
+    const data = await res.json();
 
     toast({
       title: "Question Posted",
       description: "Your question has been submitted successfully!",
     });
 
+    if (onSubmit) onSubmit(data);
+
     onClose();
-  };
+  } catch (err) {
+    toast({
+      title: "Submission Error",
+      description: err.message,
+      variant: "destructive"
+    });
+  }
+};
+
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">

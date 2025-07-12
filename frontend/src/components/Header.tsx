@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import { useNavigate } from 'react-router-dom';
 
 interface HeaderProps {
   onMenuToggle: () => void;
@@ -23,6 +24,7 @@ const Header: React.FC<HeaderProps> = ({
   onSearch,
   onNotificationClick 
 }) => {
+  const navigate=useNavigate()
   const { user, logout } = useAuth();
   const { isDark, toggleTheme } = useTheme();
   const { toast } = useToast();
@@ -269,8 +271,8 @@ const Header: React.FC<HeaderProps> = ({
             )}
 
             {!user && (
-              <Button onClick={() => onPageChange('auth')} size="sm">
-                Sign In
+              <Button onClick={() =>navigate('login')} size="sm">
+               Log In
               </Button>
             )}
           </div>

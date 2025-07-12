@@ -1,25 +1,33 @@
-
 import React, { useState } from 'react';
-import { ChevronUp, ChevronDown, MessageCircle, Eye, Clock, User, Award } from 'lucide-react';
+import {
+  ChevronUp,
+  ChevronDown,
+  MessageCircle,
+  Eye,
+  Clock,
+  User,
+  Award,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 
+interface Author {
+  _id: string;
+  username: string;
+  avatar?: string;
+}
+
 interface Question {
-  id: string;
+  _id: string;
   title: string;
-  content: string;
-  author: {
-    name: string;
-    reputation: number;
-    avatar?: string;
-    badges: string[];
-  };
+  description: string;
+  author: Author;
   tags: string[];
-  votes: number;
-  answers: number;
+  votes: { userId: string; value: number }[];
+  answersCount: number;
   views: number;
-  createdAt: Date;
-  hasAcceptedAnswer: boolean;
+  createdAt: string; // ISO string from Mongo
+  acceptedAnswer?: string;
 }
 
 interface QuestionCardProps {
@@ -28,43 +36,38 @@ interface QuestionCardProps {
   onTagClick: (tag: string) => void;
 }
 
-const QuestionCard: React.FC<QuestionCardProps> = ({ question, onClick, onTagClick }) => {
+const QuestionCard: React.FC<QuestionCardProps> = ({
+  question,
+  onClick,
+  onTagClick,
+}) => {
   const [userVote, setUserVote] = useState<'up' | 'down' | null>(null);
-  const [votes, setVotes] = useState(question.votes);
+  const [voteCount, setVoteCount] = useState(
+    question.votes.reduce((sum, vote) => sum + vote.value, 0)
+  );
   const { toast } = useToast();
 
   const handleVote = (type: 'up' | 'down', e: React.MouseEvent) => {
     e.stopPropagation();
-    console.log(`Voting ${type} on question ${question.id}`);
-    
+
+    const value = type === 'up' ? 1 : -1;
+
     if (userVote === type) {
-      // Remove vote
       setUserVote(null);
-      setVotes(type === 'up' ? votes - 1 : votes + 1);
+      setVoteCount(voteCount - value);
       toast({
-        title: "Vote removed",
+        title: 'Vote removed',
         description: `Your ${type}vote has been removed.`,
       });
     } else {
-      // Change or add vote
-      const voteChange = userVote ? (type === 'up' ? 2 : -2) : (type === 'up' ? 1 : -1);
+      const voteChange = userVote ? value * 2 : value;
       setUserVote(type);
-      setVotes(votes + voteChange);
+      setVoteCount(voteCount + voteChange);
       toast({
-        title: "Vote recorded",
+        title: 'Vote recorded',
         description: `You ${type}voted this question.`,
       });
     }
-  };
-
-  const handleTagClick = (tag: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    console.log(`Tag clicked: ${tag}`);
-    onTagClick(tag);
-    toast({
-      title: "Tag Filter Applied",
-      description: `Showing questions tagged with "${tag}".`,
-    });
   };
 
   const getTagColor = (tag: string) => {
@@ -79,7 +82,7 @@ const QuestionCard: React.FC<QuestionCardProps> = ({ question, onClick, onTagCli
   };
 
   return (
-    <div 
+    <div
       className="bg-card border border-border rounded-xl p-4 sm:p-6 hover:shadow-lg transition-all duration-300 cursor-pointer group animate-fade-in"
       onClick={onClick}
     >
@@ -98,10 +101,16 @@ const QuestionCard: React.FC<QuestionCardProps> = ({ question, onClick, onTagCli
           >
             <ChevronUp className="w-4 h-4 sm:w-5 sm:h-5" />
           </Button>
-          <span className={`font-bold text-base sm:text-lg ${
-            votes > 0 ? 'text-green-600' : votes < 0 ? 'text-red-600' : 'text-muted-foreground'
-          }`}>
-            {votes}
+          <span
+            className={`font-bold text-base sm:text-lg ${
+              voteCount > 0
+                ? 'text-green-600'
+                : voteCount < 0
+                ? 'text-red-600'
+                : 'text-muted-foreground'
+            }`}
+          >
+            {voteCount}
           </span>
           <Button
             variant="ghost"
@@ -122,9 +131,9 @@ const QuestionCard: React.FC<QuestionCardProps> = ({ question, onClick, onTagCli
           <h3 className="text-base sm:text-lg font-semibold mb-2 group-hover:text-primary transition-colors line-clamp-2 text-card-foreground">
             {question.title}
           </h3>
-          
+
           <p className="text-muted-foreground mb-4 line-clamp-2 text-sm sm:text-base">
-            {question.content}
+            {question.description}
           </p>
 
           {/* Tags */}
@@ -132,8 +141,17 @@ const QuestionCard: React.FC<QuestionCardProps> = ({ question, onClick, onTagCli
             {question.tags.map((tag) => (
               <button
                 key={tag}
-                className={`px-2 sm:px-3 py-1 rounded-full text-xs font-medium ${getTagColor(tag)} cursor-pointer hover:opacity-80 transition-opacity`}
-                onClick={(e) => handleTagClick(tag, e)}
+                className={`px-2 sm:px-3 py-1 rounded-full text-xs font-medium ${getTagColor(
+                  tag
+                )} cursor-pointer hover:opacity-80 transition-opacity`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onTagClick(tag);
+                  toast({
+                    title: 'Tag Filter Applied',
+                    description: `Showing questions tagged with "${tag}".`,
+                  });
+                }}
               >
                 {tag}
               </button>
@@ -145,10 +163,14 @@ const QuestionCard: React.FC<QuestionCardProps> = ({ question, onClick, onTagCli
             <div className="flex items-center space-x-3 sm:space-x-4 text-xs sm:text-sm text-muted-foreground">
               <div className="flex items-center space-x-1">
                 <MessageCircle className="w-3 h-3 sm:w-4 sm:h-4" />
-                <span className={question.hasAcceptedAnswer ? 'text-green-600 font-medium' : ''}>
-                  {question.answers}
+                <span
+                  className={
+                    question.acceptedAnswer ? 'text-green-600 font-medium' : ''
+                  }
+                >
+                  {question.answersCount}
                 </span>
-                {question.hasAcceptedAnswer && (
+                {question.acceptedAnswer && (
                   <Award className="w-2 h-2 sm:w-3 sm:h-3 text-green-600" />
                 )}
               </div>
@@ -158,27 +180,36 @@ const QuestionCard: React.FC<QuestionCardProps> = ({ question, onClick, onTagCli
               </div>
               <div className="flex items-center space-x-1">
                 <Clock className="w-3 h-3 sm:w-4 sm:h-4" />
-                <span className="hidden sm:inline">{question.createdAt.toLocaleDateString()}</span>
-                <span className="sm:hidden">{question.createdAt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                <span className="hidden sm:inline">
+                  {new Date(question.createdAt).toLocaleDateString()}
+                </span>
+                <span className="sm:hidden">
+                  {new Date(question.createdAt).toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                  })}
+                </span>
               </div>
             </div>
 
             {/* Author */}
             <div className="flex items-center space-x-2">
               <div className="text-right">
-                <p className="text-sm font-medium text-card-foreground">{question.author.name}</p>
-                <div className="flex items-center space-x-1">
-                  <span className="text-xs text-muted-foreground">{question.author.reputation}</span>
-                  <div className="flex space-x-1">
-                    {question.author.badges.map((badge, index) => (
-                      <span key={index} className="text-xs">{badge}</span>
-                    ))}
-                  </div>
+                <p className="text-sm font-medium text-card-foreground">
+                  {question.author?.username || 'Anonymous'}
+                </p>
+              </div>
+              {question.author?.avatar ? (
+                <img
+                  src={question.author.avatar}
+                  alt="avatar"
+                  className="w-6 h-6 sm:w-8 sm:h-8 rounded-full object-cover"
+                />
+              ) : (
+                <div className="w-6 h-6 sm:w-8 sm:h-8 bg-primary text-primary-foreground rounded-full flex items-center justify-center">
+                  <User className="w-3 h-3 sm:w-4 sm:h-4" />
                 </div>
-              </div>
-              <div className="w-6 h-6 sm:w-8 sm:h-8 bg-primary text-primary-foreground rounded-full flex items-center justify-center">
-                <User className="w-3 h-3 sm:w-4 sm:h-4" />
-              </div>
+              )}
             </div>
           </div>
         </div>

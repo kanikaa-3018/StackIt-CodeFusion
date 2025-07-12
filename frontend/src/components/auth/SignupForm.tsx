@@ -16,6 +16,8 @@ import { toast } from "react-toastify";
 import api from "@/api/axios";
 import ToastComponent from "../misc/ToastComponent";
 
+const formItemClassName = "mb-4";
+
 const signupFormSchema = z
   .object({
     username: z.string().min(1, "Username is required").max(30),
@@ -23,7 +25,7 @@ const signupFormSchema = z
     password: z.string().min(8, "Password must be at least 8 characters"),
     confirmPassword: z.string().min(8, "Password must be at least 8 characters"),
     bio: z.string().max(200, "Bio must be at most 200 characters").optional(),
-    avatar: z.url("Invalid URL").optional(),
+    avatar: z.url("Invalid URL").optional().or(z.literal("")),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords do not match",
@@ -52,7 +54,7 @@ const SignupForm = () => {
 
       const response = await api.post("/users/register", signupData);
 
-      if (response.status === 200) {
+      if (response.status === 200 || response.status === 201) {
         toast.success("Account created successfully! Please log in.");
       } else {
         throw new Error("Unexpected response from server");
@@ -85,7 +87,7 @@ const SignupForm = () => {
           control={form.control}
           name="username"
           render={({ field }) => (
-            <FormItem>
+            <FormItem className={formItemClassName}>
               <FormLabel>Username</FormLabel>
               <FormControl>
                 <Input placeholder="JohnDoe" {...field} />
@@ -99,7 +101,7 @@ const SignupForm = () => {
           control={form.control}
           name="email"
           render={({ field }) => (
-            <FormItem>
+            <FormItem className={formItemClassName}>
               <FormLabel>Email</FormLabel>
               <FormControl>
                 <Input type="email" placeholder="john@example.com" {...field} />
@@ -113,7 +115,7 @@ const SignupForm = () => {
           control={form.control}
           name="password"
           render={({ field }) => (
-            <FormItem>
+            <FormItem className={formItemClassName}>
               <FormLabel>Password</FormLabel>
               <FormControl>
                 <Input type="password" placeholder="••••••••" {...field} />
@@ -127,7 +129,7 @@ const SignupForm = () => {
           control={form.control}
           name="confirmPassword"
           render={({ field }) => (
-            <FormItem>
+            <FormItem className={formItemClassName}>
               <FormLabel>Confirm Password</FormLabel>
               <FormControl>
                 <Input type="password" placeholder="••••••••" {...field} />
@@ -141,8 +143,8 @@ const SignupForm = () => {
           control={form.control}
           name="bio"
           render={({ field }) => (
-            <FormItem>
-              <FormLabel>Bio</FormLabel>
+            <FormItem className={formItemClassName}>
+              <FormLabel>Bio (Optional)</FormLabel>
               <FormControl>
                 <Input placeholder="Tell us about yourself" {...field} />
               </FormControl>
@@ -155,8 +157,8 @@ const SignupForm = () => {
           control={form.control}
           name="avatar"
           render={({ field }) => (
-            <FormItem>
-              <FormLabel>Avatar URL</FormLabel>
+            <FormItem className={formItemClassName}>
+              <FormLabel>Avatar URL (Optional)</FormLabel>
               <FormControl>
                 <Input placeholder="https://example.com/avatar.jpg" {...field} />
               </FormControl>

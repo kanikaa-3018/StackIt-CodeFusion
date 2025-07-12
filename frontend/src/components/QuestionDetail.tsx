@@ -1,239 +1,271 @@
-import React, { useState } from 'react';
-import { ChevronUp, ChevronDown, MessageCircle, Eye, Clock, User, Award, ArrowLeft, Flag } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { useToast } from '@/hooks/use-toast';
-import RichTextEditor from './RichTextEditor';
+import React, { useState, useEffect } from "react";
+import { getAccessToken } from "../utils/tokenManager";
+import {
+  ChevronUp,
+  ChevronDown,
+  MessageCircle,
+  Eye,
+  Clock,
+  User,
+  Award,
+  ArrowLeft,
+  Flag,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
+import RichTextEditor from "./RichTextEditor";
+import axios from "axios";
 
-interface Question {
-  id: string;
-  title: string;
-  content: string;
-  author: {
-    name: string;
-    reputation: number;
-    avatar?: string;
-    badges: string[];
-  };
-  tags: string[];
-  votes: number;
-  answers: number;
-  views: number;
-  createdAt: Date;
-  hasAcceptedAnswer: boolean;
+interface UserBadge {
+  _id: string;
+  username: string;
+  avatar?: string;
 }
 
 interface Answer {
-  id: string;
+  _id: string;
   content: string;
-  author: {
-    name: string;
-    reputation: number;
-    badges: string[];
-  };
-  votes: number;
+  author: UserBadge;
+  votes: { userId: string; value: number }[];
   isAccepted: boolean;
-  createdAt: Date;
+  createdAt: string;
+}
+
+interface Question {
+  _id: string;
+  title: string;
+  description: string;
+  author: UserBadge;
+  tags: string[];
+  votes: { userId: string; value: number }[];
+  acceptedAnswer?: Answer;
+  answers: Answer[];
+  answersCount: number;
+  views: number;
+  createdAt: string;
 }
 
 interface QuestionDetailProps {
-  question: Question;
+  questionId: string;
   onBack: () => void;
   onTagClick: (tag: string) => void;
+  currentUserId: string;
 }
 
-const mockAnswers: Answer[] = [
-  {
-    id: '1',
-    content: 'You can handle async/await with proper try-catch blocks. Here\'s the best approach: wrap your async calls in try-catch, handle loading states with useState, and always provide user feedback for errors.',
-    author: {
-      name: 'John Developer',
-      reputation: 2340,
-      badges: ['🏆', '⭐', '🔥']
-    },
-    votes: 15,
-    isAccepted: true,
-    createdAt: new Date('2024-01-11')
-  },
-  {
-    id: '2',
-    content: 'Another approach is to use custom hooks for error handling. This way you can centralize your error logic and reuse it across components.',
-    author: {
-      name: 'Jane Smith',
-      reputation: 1850,
-      badges: ['💡', '🚀']
-    },
-    votes: 8,
-    isAccepted: false,
-    createdAt: new Date('2024-01-12')
-  }
-];
-
-const QuestionDetail: React.FC<QuestionDetailProps> = ({ question, onBack, onTagClick }) => {
-  const [userVote, setUserVote] = useState<'up' | 'down' | null>(null);
-  const [votes, setVotes] = useState(question.votes);
-  const [answers] = useState(mockAnswers);
-  const [newAnswer, setNewAnswer] = useState('');
+const QuestionDetail: React.FC<QuestionDetailProps> = ({
+  questionId,
+  onBack,
+  onTagClick,
+  currentUserId,
+}) => {
+  const [question, setQuestion] = useState<Question | null>(null);
+  const [userVote, setUserVote] = useState<number | null>(null);
+  const [newAnswer, setNewAnswer] = useState("");
   const { toast } = useToast();
 
-  const handleVote = (type: 'up' | 'down') => {
-    console.log(`Voting ${type} on question ${question.id}`);
+  useEffect(() => {
+      console.log("access",getAccessToken())
+    const fetchQuestion = async () => {
+      try {
+        const res = await axios.get(
+          `${import.meta.env.VITE_API_URL}/api/questions/${questionId}`
+        );
+        setQuestion(res.data);
+        console.log(questionId);
+        console.log(res.data);
+
+        const userVoteObj = res.data.votes.find(
+          (v: any) => v.userId === currentUserId
+        );
+        setUserVote(userVoteObj ? userVoteObj.value : null);
+      } catch (err) {
+        toast({
+          title: "Error",
+          description: "Failed to fetch question",
+          variant: "destructive",
+        });
+      }
+    };
+    fetchQuestion();
+  }, [questionId, currentUserId]);
+
+  const calculateVoteTotal = (votes?: { value: number }[]) => {
+    if (!Array.isArray(votes)) return 0;
+    return votes.reduce((total, vote) => total + vote.value, 0);
+  };
+
+  const handleVote = async (type: "up" | "down") => {
+    if (!question) return;
+    const newVote = type === "up" ? 1 : -1;
+    const existing = question.votes.find((v) => v.userId === currentUserId);
+    const voteChange = existing ? newVote - existing.value : newVote;
+
+    try {
+      await axios.put(
+        `${import.meta.env.VITE_API_URL}/api/questions/${question._id}/vote`,
+        { value: newVote },
+        {
+          headers: {
+            Authorization: `Bearer ${getAccessToken()}`,
+          },
+        }
+      );
+
+      const updatedVotes = existing
+        ? question.votes.map((v) =>
+            v.userId === currentUserId ? { ...v, value: newVote } : v
+          )
+        : [...question.votes, { userId: currentUserId, value: newVote }];
+      setQuestion({ ...question, votes: updatedVotes });
+      setUserVote(newVote);
     
-    if (userVote === type) {
-      setUserVote(null);
-      setVotes(type === 'up' ? votes - 1 : votes + 1);
       toast({
-        title: "Vote removed",
-        description: `Your ${type}vote has been removed.`,
-      });
-    } else {
-      const voteChange = userVote ? (type === 'up' ? 2 : -2) : (type === 'up' ? 1 : -1);
-      setUserVote(type);
-      setVotes(votes + voteChange);
-      toast({
-        title: "Vote recorded",
+        title: "Vote submitted",
         description: `You ${type}voted this question.`,
       });
-    }
-  };
-
-  const handleSubmitAnswer = () => {
-    if (!newAnswer.trim()) {
+    } catch {
       toast({
         title: "Error",
-        description: "Please enter an answer before submitting.",
-        variant: "destructive"
+        description: "Failed to vote",
+        variant: "destructive",
       });
-      return;
     }
-
-    console.log('Submitting answer:', newAnswer);
-    toast({
-      title: "Answer Submitted",
-      description: "Your answer has been posted successfully!",
-    });
-    setNewAnswer('');
   };
+
+const handleSubmitAnswer = async () => {
+  if (!newAnswer.trim()) {
+    toast({
+      title: "Error",
+      description: "Answer cannot be empty.",
+      variant: "destructive",
+    });
+    return;
+  }
+
+  try {
+    const token = getAccessToken();
+    console.log("aceesesese",token)
+    if (!token) throw new Error("User not authenticated");
+
+    await axios.post(
+      `${import.meta.env.VITE_API_URL}/api/answers/${questionId}`,
+      { content: newAnswer },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    setNewAnswer("");
+    toast({
+      title: "Answer posted",
+      description: "Your answer has been submitted.",
+    });
+
+    const res = await axios.get(`${import.meta.env.VITE_API_URL}/api/questions/${questionId}`);
+    setQuestion(res.data);
+  } catch (err: any) {
+    toast({
+      title: "Error",
+      description: err?.response?.data?.message || "Failed to submit answer",
+      variant: "destructive",
+    });
+  }
+};
 
   const getTagColor = (tag: string) => {
     const colors = [
-      'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
-      'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
-      'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300',
-      'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300',
-      'bg-pink-100 text-pink-800 dark:bg-pink-900/30 dark:text-pink-300',
+      "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
+      "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
+      "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
+      "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
+      "bg-pink-100 text-pink-800 dark:bg-pink-900/30 dark:text-pink-300",
     ];
     return colors[tag.length % colors.length];
   };
 
+  if (!question) return <div>Loading...</div>;
+
   return (
-    <div className="max-w-4xl mx-auto p-3 sm:p-4 md:p-6 pb-20 md:pb-6">
-      {/* Back Button */}
-      <Button 
-        variant="ghost" 
-        onClick={onBack}
-        className="mb-4 p-2"
-      >
-        <ArrowLeft className="w-4 h-4 mr-2" />
-        Back to Questions
+    <div className="max-w-4xl mx-auto p-4 pb-20">
+      <Button variant="ghost" onClick={onBack} className="mb-4 p-2">
+        <ArrowLeft className="w-4 h-4 mr-2" /> Back to Questions
       </Button>
 
-      <div className="bg-card border border-border rounded-xl p-4 sm:p-6 shadow-sm mb-6">
-        <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
-          {/* Vote Section */}
-          <div className="flex sm:flex-col items-center sm:items-start space-x-4 sm:space-x-0 sm:space-y-2 min-w-0">
+      <div className="bg-card border border-border rounded-xl p-6 shadow-sm mb-6">
+        <div className="flex">
+          <div className="flex flex-col items-center mr-6">
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => handleVote('up')}
+              onClick={() => handleVote("up")}
               className={`h-10 w-10 ${
-                userVote === 'up'
-                  ? 'bg-green-500 text-white hover:bg-green-600'
-                  : 'hover:bg-muted text-muted-foreground hover:text-foreground'
+                userVote === 1
+                  ? "bg-green-500 text-white"
+                  : "hover:bg-muted text-muted-foreground"
               }`}
             >
               <ChevronUp className="w-5 h-5" />
             </Button>
-            <span className={`font-bold text-lg ${
-              votes > 0 ? 'text-green-600' : votes < 0 ? 'text-red-600' : 'text-muted-foreground'
-            }`}>
-              {votes}
+            <span className="font-bold text-lg">
+              {calculateVoteTotal(question?.votes)}
             </span>
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => handleVote('down')}
+              onClick={() => handleVote("down")}
               className={`h-10 w-10 ${
-                userVote === 'down'
-                  ? 'bg-red-500 text-white hover:bg-red-600'
-                  : 'hover:bg-muted text-muted-foreground hover:text-foreground'
+                userVote === -1
+                  ? "bg-red-500 text-white"
+                  : "hover:bg-muted text-muted-foreground"
               }`}
             >
               <ChevronDown className="w-5 h-5" />
             </Button>
           </div>
 
-          {/* Content Section */}
-          <div className="flex-1 min-w-0">
-            <h1 className="text-xl sm:text-2xl font-bold mb-4 text-card-foreground">
-              {question.title}
-            </h1>
-            
-            <div className="prose prose-sm sm:prose max-w-none mb-6 text-card-foreground">
-              <p>{question.content}</p>
-            </div>
-
-            {/* Tags */}
+          <div className="flex-1">
+            <h1 className="text-2xl font-bold mb-4">{question?.title}</h1>
+            <div className="prose prose-sm mb-6">{question?.description}</div>
             <div className="flex flex-wrap gap-2 mb-6">
-              {question.tags.map((tag) => (
+              {question?.tags?.map((tag) => (
                 <button
                   key={tag}
-                  className={`px-3 py-1 rounded-full text-xs font-medium ${getTagColor(tag)} cursor-pointer hover:opacity-80 transition-opacity`}
                   onClick={() => {
                     onTagClick(tag);
                     onBack();
                   }}
+                  className={`px-3 py-1 rounded-full text-xs font-medium ${getTagColor(
+                    tag
+                  )} cursor-pointer`}
                 >
                   {tag}
                 </button>
               ))}
             </div>
 
-            {/* Question Stats and Author */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-4 sm:space-y-0">
-              <div className="flex items-center space-x-4 text-sm text-muted-foreground">
-                <div className="flex items-center space-x-1">
-                  <MessageCircle className="w-4 h-4" />
-                  <span className={question.hasAcceptedAnswer ? 'text-green-600 font-medium' : ''}>
-                    {question.answers} answers
-                  </span>
-                  {question.hasAcceptedAnswer && (
-                    <Award className="w-3 h-3 text-green-600" />
-                  )}
+            <div className="flex justify-between items-center text-sm text-muted-foreground">
+              <div className="flex gap-4">
+                <div className="flex items-center gap-1">
+                  <MessageCircle className="w-4 h-4" /> {question?.answersCount}{" "}
+                  answers
                 </div>
-                <div className="flex items-center space-x-1">
-                  <Eye className="w-4 h-4" />
-                  <span>{question.views} views</span>
+                <div className="flex items-center gap-1">
+                  <Eye className="w-4 h-4" /> {question?.views} views
                 </div>
-                <div className="flex items-center space-x-1">
-                  <Clock className="w-4 h-4" />
-                  <span>Asked {question.createdAt.toLocaleDateString()}</span>
+                <div className="flex items-center gap-1">
+                  <Clock className="w-4 h-4" />{" "}
+                  {new Date(question?.createdAt).toLocaleDateString()}
                 </div>
               </div>
-
-              {/* Author */}
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center gap-2">
                 <div className="text-right">
-                  <p className="text-sm font-medium text-card-foreground">{question.author.name}</p>
-                  <div className="flex items-center space-x-1">
-                    <span className="text-xs text-muted-foreground">{question.author.reputation}</span>
-                    <div className="flex space-x-1">
-                      {question.author.badges.map((badge, index) => (
-                        <span key={index} className="text-xs">{badge}</span>
-                      ))}
-                    </div>
-                  </div>
+                  <p className="text-sm font-medium">
+                    {question?.author?.username}
+                  </p>
                 </div>
-                <div className="w-8 h-8 bg-primary text-primary-foreground rounded-full flex items-center justify-center">
+                <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
                   <User className="w-4 h-4" />
                 </div>
               </div>
@@ -242,57 +274,47 @@ const QuestionDetail: React.FC<QuestionDetailProps> = ({ question, onBack, onTag
         </div>
       </div>
 
-      {/* Answers Section */}
       <div className="space-y-6">
-        <h2 className="text-lg sm:text-xl font-semibold text-card-foreground">
-          {answers.length} Answer{answers.length !== 1 ? 's' : ''}
+        <h2 className="text-lg font-semibold">
+          {question?.answers?.length} Answer
+          {question?.answers?.length !== 1 ? "s" : ""}
         </h2>
-
-        {answers.map((answer) => (
-          <div key={answer.id} className={`bg-card border border-border rounded-xl p-4 sm:p-6 shadow-sm ${
-            answer.isAccepted ? 'ring-2 ring-green-500' : ''
-          }`}>
-            {answer.isAccepted && (
-              <div className="flex items-center space-x-2 mb-4 text-green-600">
-                <Award className="w-4 h-4" />
-                <span className="text-sm font-medium">Accepted Answer</span>
+        {question?.answers?.map((answer) => (
+          <div
+            key={answer._id}
+            className={`bg-card border rounded-xl p-6 ${
+              answer?.isAccepted ? "ring-2 ring-green-500" : ""
+            }`}
+          >
+            {answer?.isAccepted && (
+              <div className="flex items-center text-green-600 mb-2">
+                <Award className="w-4 h-4 mr-1" /> Accepted Answer
               </div>
             )}
-
-            <div className="prose prose-sm sm:prose max-w-none mb-4 text-card-foreground">
-              <p>{answer.content}</p>
-            </div>
-
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-4 sm:space-y-0">
-              <div className="flex items-center space-x-4">
-                <div className="flex items-center space-x-2">
-                  <Button variant="ghost" size="sm">
-                    <ChevronUp className="w-4 h-4" />
-                  </Button>
-                  <span className="font-medium">{answer.votes}</span>
-                  <Button variant="ghost" size="sm">
-                    <ChevronDown className="w-4 h-4" />
-                  </Button>
-                </div>
+            <div
+              className="prose prose-sm mb-4"
+              dangerouslySetInnerHTML={{ __html: answer?.content }}
+            />
+            <div className="flex justify-between text-sm">
+              <div className="flex items-center gap-2">
                 <Button variant="ghost" size="sm">
-                  <Flag className="w-4 h-4 mr-1" />
-                  Flag
+                  <ChevronUp className="w-4 h-4" />
+                </Button>
+                <span>{calculateVoteTotal(answer?.votes)}</span>
+                <Button variant="ghost" size="sm">
+                  <ChevronDown className="w-4 h-4" />
+                </Button>
+                <Button variant="ghost" size="sm">
+                  <Flag className="w-4 h-4 mr-1" /> Flag
                 </Button>
               </div>
-
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center gap-2">
                 <div className="text-right">
-                  <p className="text-sm font-medium text-card-foreground">{answer.author.name}</p>
-                  <div className="flex items-center space-x-1">
-                    <span className="text-xs text-muted-foreground">{answer.author.reputation}</span>
-                    <div className="flex space-x-1">
-                      {answer.author.badges.map((badge, index) => (
-                        <span key={index} className="text-xs">{badge}</span>
-                      ))}
-                    </div>
-                  </div>
+                  <p className="text-sm font-medium">
+                    {answer?.author?.username}
+                  </p>
                 </div>
-                <div className="w-8 h-8 bg-secondary text-secondary-foreground rounded-full flex items-center justify-center">
+                <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
                   <User className="w-4 h-4" />
                 </div>
               </div>
@@ -300,19 +322,16 @@ const QuestionDetail: React.FC<QuestionDetailProps> = ({ question, onBack, onTag
           </div>
         ))}
 
-        {/* Add Answer Section with Rich Text Editor */}
-        <div className="bg-card border border-border rounded-xl p-4 sm:p-6 shadow-sm">
-          <h3 className="text-lg font-semibold mb-4 text-card-foreground">Your Answer</h3>
+        <div className="bg-card border rounded-xl p-6">
+          <h3 className="text-lg font-semibold mb-4">Your Answer</h3>
           <RichTextEditor
             value={newAnswer}
             onChange={setNewAnswer}
-            placeholder="Write your answer here... You can format text, add links, and insert images."
+            placeholder="Write your answer here..."
             className="mb-4"
           />
           <div className="flex justify-end">
-            <Button onClick={handleSubmitAnswer} className="px-6">
-              Post Your Answer
-            </Button>
+            <Button onClick={handleSubmitAnswer}>Post Your Answer</Button>
           </div>
         </div>
       </div>
