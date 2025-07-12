@@ -25,7 +25,7 @@ const signupFormSchema = z
     password: z.string().min(8, "Password must be at least 8 characters"),
     confirmPassword: z.string().min(8, "Password must be at least 8 characters"),
     bio: z.string().max(200, "Bio must be at most 200 characters").optional(),
-    avatar: z.url("Invalid URL").optional(),
+    avatar: z.url("Invalid URL").optional().or(z.literal("")),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords do not match",
