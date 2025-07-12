@@ -58,7 +58,7 @@ export const loginUser = async (req, res) => {
       userId: user._id,
       accessToken,
       refreshToken,
-      expiresAt: new Date(Date.now() + ms(process.env.ACCESS_TOKEN_DURATION)),
+      expiresAt: new Date(Date.now() + ms(process.env.REFRESH_TOKEN_DURATION)),
     });
 
     res.cookie("refresh_token", refreshToken, {
@@ -108,6 +108,7 @@ export const refreshAcessToken = async (req, res) => {
 
     res.status(200).json({ jwt_token: newAccessToken });
   } catch (err) {
+    console.error("Error refreshing access token:", err);
     return res.status(403).json({ message: "Invalid refresh token" });
   }
 };
