@@ -16,7 +16,7 @@ def get_recommendations(question_id, top_k=5):
         return []
     
     sims = cosine_similarity(tfidf_matrix[idx], tfidf_matrix).flatten()
-    sims[idx] = 0  # Exclude current
+    sims[idx] = 0
     
     top_indices = sims.argsort()[-top_k:][::-1]
     return [str(questions[i]['_id']) for i in top_indices]

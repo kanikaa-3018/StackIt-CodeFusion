@@ -4,6 +4,7 @@ import connectDB from './config/db.js';
 import userRoutes from './routes/userRoutes.js';
 import questionRoutes from './routes/questionRoutes.js';
 import answerRoutes from './routes/answerRoute.js';
+import aiRoutes from './routes/aiRoutes.js';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 
@@ -37,6 +38,7 @@ app.use(cookieParser());
 app.use('/api/users', userRoutes);
 app.use('/api/questions', questionRoutes);
 app.use('/api/answers', answerRoutes);
+app.use('/api/ai', aiRoutes);
 
 app.get('/', (req, res) => {
   res.send('StackIt API is running...');
