@@ -16,6 +16,8 @@ import { toast } from "react-toastify";
 import api from "@/api/axios";
 import ToastComponent from "../misc/ToastComponent";
 
+const formItemClassName = "mb-4";
+
 const signupFormSchema = z
   .object({
     username: z.string().min(1, "Username is required").max(30),
@@ -85,7 +87,7 @@ const SignupForm = () => {
           control={form.control}
           name="username"
           render={({ field }) => (
-            <FormItem>
+            <FormItem className={formItemClassName}>
               <FormLabel>Username</FormLabel>
               <FormControl>
                 <Input placeholder="JohnDoe" {...field} />
@@ -99,7 +101,7 @@ const SignupForm = () => {
           control={form.control}
           name="email"
           render={({ field }) => (
-            <FormItem>
+            <FormItem className={formItemClassName}>
               <FormLabel>Email</FormLabel>
               <FormControl>
                 <Input type="email" placeholder="john@example.com" {...field} />
@@ -113,7 +115,7 @@ const SignupForm = () => {
           control={form.control}
           name="password"
           render={({ field }) => (
-            <FormItem>
+            <FormItem className={formItemClassName}>
               <FormLabel>Password</FormLabel>
               <FormControl>
                 <Input type="password" placeholder="••••••••" {...field} />
@@ -127,7 +129,7 @@ const SignupForm = () => {
           control={form.control}
           name="confirmPassword"
           render={({ field }) => (
-            <FormItem>
+            <FormItem className={formItemClassName}>
               <FormLabel>Confirm Password</FormLabel>
               <FormControl>
                 <Input type="password" placeholder="••••••••" {...field} />
@@ -141,7 +143,7 @@ const SignupForm = () => {
           control={form.control}
           name="bio"
           render={({ field }) => (
-            <FormItem>
+            <FormItem className={formItemClassName}>
               <FormLabel>Bio</FormLabel>
               <FormControl>
                 <Input placeholder="Tell us about yourself" {...field} />
@@ -155,7 +157,7 @@ const SignupForm = () => {
           control={form.control}
           name="avatar"
           render={({ field }) => (
-            <FormItem>
+            <FormItem className={formItemClassName}>
               <FormLabel>Avatar URL</FormLabel>
               <FormControl>
                 <Input placeholder="https://example.com/avatar.jpg" {...field} />
